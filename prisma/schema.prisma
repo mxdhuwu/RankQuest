@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  targetYear    String?        @default("2026")
+  avatar        String?        @default("compass")
+  isOnboarded   Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  subjectLevels SubjectLevel[]
+  testSessions  TestSession[]
+  topicMastery  TopicMastery[]
+}
+
+model SubjectLevel {
+  id               String   @id @default(cuid())
+  userId           String
+  subject          String   // "PHYSICS" | "CHEMISTRY" | "MATHEMATICS"
+  currentLevel     Int      @default(1) // 1 to 7
+  experiencePoints Int      @default(0)
+  accuracyRate     Float    @default(0.0)
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subject])
+}
+
+model Question {
+  id            String       @id // HF question_id or generated id
+  subject       String       // "PHYSICS" | "CHEMISTRY" | "MATHEMATICS"
+  chapter       String       // e.g. "Mechanics", "Calculus", "Physical Chemistry"
+  topic         String       // e.g. "Current Electricity", "Limits & Continuity"
+  subtopic      String?      // e.g. "KVL", "L'Hopital Rule"
+  difficulty    Int          // 1 to 7
+  type          String       // "SCQ" | "NVQ"
+  stem          String       // Markdown + LaTeX
+  options       String       // JSON string array of options for SCQ: ["opt1", "opt2", "opt3", "opt4"]
+  correctAnswer String       // "1" | "2" | "3" | "4" or numerical string like "0.4"
+  solution      String       // Worked solution Markdown + LaTeX
+  exam          String       @default("JEE Main")
+  yearTag       String?      // Source docx or year e.g. "JEE Main 2024"
+  createdAt     DateTime     @default(now())
+
+  submissions   Submission[]
+}
+
+model TestSession {
+  id               String       @id @default(cuid())
+  userId           String
+  testType         String       // "DIAGNOSTIC" | "ADAPTIVE_QUIZ" | "FULL_MOCK"
+  subject          String?      // "PHYSICS" | "CHEMISTRY" | "MATHEMATICS" or "ALL"
+  score            Float        @default(0)
+  totalMarks       Float        @default(0)
+  totalQuestions   Int          @default(0)
+  correctCount     Int          @default(0)
+  incorrectCount   Int          @default(0)
+  unattemptedCount Int          @default(0)
+  timeSpentSeconds Int          @default(0)
+  status           String       @default("IN_PROGRESS") // "IN_PROGRESS" | "COMPLETED"
+  startedAt        DateTime     @default(now())
+  completedAt      DateTime?
+
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submissions      Submission[]
+}
+
+model Submission {
+  id               String      @id @default(cuid())
+  sessionId        String
+  questionId       String
+  userAnswer       String?     // option index (1-4) or numerical text
+  isCorrect        Boolean     @default(false)
+  timeTakenSeconds Int         @default(0)
+  levelAtTime      Int         @default(1)
+  createdAt        DateTime    @default(now())
+
+  session          TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question         Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model TopicMastery {
+  id            String   @id @default(cuid())
+  userId        String
+  topicName     String
+  subject       String   // "PHYSICS" | "CHEMISTRY" | "MATHEMATICS"
+  masteryScore  Float    @default(0.0) // 0 to 100
+  attemptsCount Int      @default(0)
+  correctCount  Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicName])
+}
